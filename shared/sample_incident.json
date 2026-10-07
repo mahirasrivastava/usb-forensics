@@ -1,0 +1,25 @@
+{
+  "_id": "INC-20260912-0001",
+  "device": {"vendor_id": "0781", "product_id": "5567", "serial": "AA010203040506",
+             "volume_label": "SANDISK", "drive_letter": "D:"},
+  "timestamps": {"connect": "2026-09-12T10:15:00Z", "disconnect": "2026-09-12T10:22:00Z"},
+  "artifacts": {
+    "usbstor": {"friendly_name": "SanDisk Cruzer USB Device", "reg_key_time": "2026-09-12T10:15:00Z"},
+    "setupapi": ["Device Install (Hardware initiated) - USBSTOR\\Disk&Ven..."],
+    "eventlog": [{"event_id": 2003, "source": "Microsoft-Windows-DriverFrameworks-UserMode",
+                  "time": "2026-09-12T10:15:01Z"}],
+    "lnk_files": [{"target_path": "D:\\reports\\salary.xlsx", "accessed_time": "2026-09-12T10:18:00Z",
+                   "volume_serial": "AA010203"}],
+    "mountpoints2": {"guid": "{a1b2c3d4-...}", "drive_letter": "D:"}
+  },
+  "files": [{"path": "D:\\reports\\salary.xlsx", "size": 45210,
+             "sha256_collected": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+             "sha256_reverified": null, "flags": []}],
+  "correlation_graph": {"nodes": [], "edges": []},
+  "confidence": {"score": null, "level": null, "sources_matched": []},
+  "risk": {"score": null, "level": null, "justification": []},
+  "integrity": {"custody_chain_valid": null},
+  "custody_log": [{"action": "collected", "actor": "system", "timestamp": "2026-09-12T10:15:05Z",
+                   "evidence_digest": null, "entry_hash": null, "prev_hash": null}],
+  "status": "open"
+}

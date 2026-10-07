@@ -1,0 +1,5 @@
+venv/
+.env
+fake_usb/
+__pycache__/
+.pytest_cache/
