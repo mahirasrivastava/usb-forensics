@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+reportlab
+pymongo
+python-dotenv
+certifi
+# tests
+pytest
+mongomock
+httpx

@@ -32,7 +32,8 @@ def seal_unhashed_entries(custody_log, incident_id, files):
     prev = None
     for e in custody_log:
         if e.get("entry_hash") in UNHASHED:
-            e.setdefault("evidence_digest", evidence_digest(files))
+            if not e.get("evidence_digest"):
+                e["evidence_digest"] = evidence_digest(files)
             e["prev_hash"] = prev
             e["entry_hash"] = _hash_entry(e, prev, incident_id)
         prev = e["entry_hash"]

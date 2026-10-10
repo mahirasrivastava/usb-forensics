@@ -1,0 +1,4 @@
+# Everything for the whole project (all three modules)
+-r engine/requirements.txt
+-r collector/requirements.txt
+-r dashboard/backend/requirements.txt

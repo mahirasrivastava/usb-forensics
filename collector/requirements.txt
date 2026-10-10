@@ -1,0 +1,10 @@
+pymongo
+python-dotenv
+certifi
+# Windows-only readers (skipped automatically on Mac/Linux)
+pywin32; sys_platform == "win32"
+WMI; sys_platform == "win32"
+LnkParse3
+# tests
+pytest
+mongomock
