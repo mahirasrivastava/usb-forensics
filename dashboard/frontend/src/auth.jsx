@@ -57,7 +57,23 @@ const bytesToHex = (buf) =>
  *  (localhost counts; a plain-http LAN address does not). */
 export const cryptoReady = () => typeof crypto !== "undefined" && !!crypto?.subtle;
 
+/** WebCrypto can be missing or blocked (insecure origin, hardened browser
+ *  settings, some extensions). Turn that into a message the person can act on
+ *  rather than a rejected promise nobody catches. */
 async function hashPassword(password, saltHex) {
+  if (!cryptoReady())
+    throw new Error("This browser will not hash passwords here. Open the dashboard on "
+                    + "http://localhost, not a LAN address like http://192.168.x.x.");
+  try {
+    return await derive(password, saltHex);
+  } catch (err) {
+    throw new Error("Password hashing failed in this browser ("
+                    + (err?.message || err) + "). Try a normal (non-private) window, "
+                    + "or another browser.");
+  }
+}
+
+async function derive(password, saltHex) {
   const enc = new TextEncoder();
   const salt = Uint8Array.from(saltHex.match(/.{2}/g).map((h) => parseInt(h, 16)));
   const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);

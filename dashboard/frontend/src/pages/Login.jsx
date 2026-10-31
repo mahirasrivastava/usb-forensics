@@ -66,8 +66,15 @@ export default function Login() {
     setError(null);
     if (signingUp && form.password !== form.confirm) return setError("The two passwords do not match.");
     setBusy(true);
-    const r = signingUp ? await signUp(form) : await signIn(form.username, form.password);
-    if (!r.ok) { setError(r.error); setBusy(false); }
+    try {
+      const r = signingUp ? await signUp(form) : await signIn(form.username, form.password);
+      // On success the session changes and this page unmounts, so `busy` stays set.
+      if (!r.ok) { setError(r.error); setBusy(false); }
+    } catch (err) {
+      // Never leave the button spinning with nothing said.
+      setError(err?.message || "Something went wrong. Reload the page and try again.");
+      setBusy(false);
+    }
   }
 
   const switchMode = (next) => {
