@@ -88,18 +88,20 @@ Windows-only, run as Administrator. Entry point: `python -m collector.collector`
 flowchart TD
     START["collector.collector"] --> CHK{"Windows?<br/>Administrator?"}
     CHK -->|no| EXIT["exit with guidance<br/>use engine.fake_collector"]
-    CHK -->|yes| WATCH["WMI Win32_VolumeChangeEvent<br/>watch_for, 10 s timeout"]
+    CHK -->|yes| SWEEP["collect_already_plugged<br/>sweep drives already mounted"]
+    SWEEP --> WATCH["WMI Win32_VolumeChangeEvent<br/>watch_for, 10 s timeout"]
 
     WATCH --> EV{"EventType"}
     EV -->|"2 — ARRIVAL"| DEV["get_device_for_drive<br/>VID · PID · serial · volume"]
     EV -->|"3 — REMOVAL"| DISC["mark_disconnected<br/>set timestamps.disconnect"]
     EV -->|"timeout"| REFRESH["refresh_lnks<br/>re-read Recent LNKs"]
 
+    SWEEP -.->|"one incident per<br/>already-plugged drive"| DEV
     DEV --> ISUSB{"is_usb?"}
     ISUSB -->|no| WATCH
     ISUSB -->|yes| COLLECT["collect_artifacts"]
 
-    subgraph SRC["Five artifact sources — windows_artifacts.py"]
+    subgraph SRC["Five artifact sources"]
         A1["read_usbstor<br/>SYSTEM hive, friendly name, key time"]
         A2["read_mountpoints2<br/>drive letter to GUID"]
         A3["parse_setupapi_log<br/>first-install records"]

@@ -7,6 +7,11 @@ On connect: identifies the device, reads the 5 artifact sources, hashes every fi
 on the drive and inserts an incident with risk.score = null. Module 2's watcher
 analyzes it automatically. While a drive stays plugged in, new Recent-file (LNK)
 evidence is picked up every 10 s and the incident is queued for re-analysis.
+
+Windows only reports a volume-change event at the moment a drive mounts, so on
+startup any drive that is *already* plugged in is collected once before the event
+loop begins. Without that sweep, starting the collector after inserting the drive
+would silently collect nothing.
 """
 import argparse
 import sys
@@ -17,6 +22,9 @@ from collector.incident import build_incident, collect_files, now_iso
 
 ARRIVAL, REMOVAL = 2, 3
 REFRESH_SECONDS = 10
+# Windows fires several ARRIVAL events for one insertion, milliseconds apart.
+# Keep this short so a deliberate unplug/replug still registers as a new connection.
+DEDUP_SECONDS = 3
 
 
 def _require_windows():
@@ -78,6 +86,31 @@ def refresh_lnks(db, connected):
             print(f"[collector] {inc_id}: {len(lnks)} opened-file records, re-analysis queued")
 
 
+def list_removable_drives():
+    """Drive letters of removable volumes mounted right now, e.g. ['E:', 'F:']."""
+    import wmi
+    drives = []
+    try:
+        for ld in wmi.WMI().Win32_LogicalDisk(DriveType=2):
+            letter = (ld.DeviceID or "").upper()
+            # DriveType 2 also covers card readers sitting empty; those have no Size.
+            if letter and ld.Size is not None:
+                drives.append(letter)
+    except Exception as e:
+        print(f"[collector] could not list removable drives: {e}")
+    return drives
+
+
+def collect_already_plugged(db, connected, last_seen):
+    """Collect drives inserted before the collector started (no event fires for those)."""
+    for drive in list_removable_drives():
+        print(f"[collector] {drive} is already plugged in; collecting it now")
+        last_seen[drive] = time.time()
+        inc_id = collect_drive(db, drive)
+        if inc_id:
+            connected[drive] = inc_id
+
+
 def watch(db):
     import pythoncom
     import wmi
@@ -85,6 +118,7 @@ def watch(db):
     pythoncom.CoInitialize()
     watcher = wmi.WMI().Win32_VolumeChangeEvent.watch_for()
     connected, last_seen = {}, {}
+    collect_already_plugged(db, connected, last_seen)
     print("[collector] Watching for USB devices (Ctrl+C to stop)")
     while True:
         try:
@@ -96,7 +130,7 @@ def watch(db):
         if not drive:
             continue
         if event.EventType == ARRIVAL:
-            if time.time() - last_seen.get(drive, 0) < 5:   # duplicate event
+            if time.time() - last_seen.get(drive, 0) < DEDUP_SECONDS:  # duplicate event
                 continue
             last_seen[drive] = time.time()
             time.sleep(2)   # let Windows finish writing registry/log entries
