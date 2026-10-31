@@ -20,14 +20,26 @@ def new_incident_id():
     return f"INC-{datetime.now():%Y%m%d}-{uuid.uuid4().hex[:6]}"
 
 
-def collect_files(root):
-    """Hash every regular file under root. Returns (files, skipped_count)."""
+def collect_files(root, known_paths=()):
+    """Hash every regular file under root. Returns (files, skipped_count).
+
+    Paths in known_paths are skipped, so a drive that is still plugged in can be
+    walked again to pick up files created since the first pass. Files already
+    collected are never re-hashed: the custody chain protects what was recorded,
+    and re-hashing would silently overwrite the evidence it is meant to protect.
+    """
+    known = {str(p).lower() for p in known_paths}
+    room = MAX_FILES - len(known)
+    if room <= 0:
+        return [], 0            # already at the cap; don't walk the drive again
     files, skipped = [], 0
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d.lower() not in SKIP_DIRS]
         for name in filenames:
             path = os.path.join(dirpath, name)
-            if len(files) >= MAX_FILES:
+            if path.lower() in known:
+                continue
+            if len(files) >= room:
                 skipped += 1
                 continue
             try:

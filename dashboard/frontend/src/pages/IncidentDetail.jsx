@@ -268,10 +268,11 @@ export default function IncidentDetail() {
             <div className="tab-note">
               <span className="glyph" aria-hidden="true">i</span>
               <span>
-                Forensic snapshot taken when the drive was connected ({fmtTime(timestamps.connect)}).
-                The collector hashes the drive once and never re-hashes it, so files created on the drive
-                <strong> after</strong> that moment do not appear here — re-plugging the drive creates a new
-                incident with its own snapshot. <em>Re-verify evidence</em> re-hashes these {files.length} file
+                First collected when the drive was connected ({fmtTime(timestamps.connect)}).
+                While the drive stays plugged in, files created on it afterwards are hashed and added
+                within about 10 seconds, each addition recorded as a <em>files_added</em> custody entry.
+                Hashes already collected are never recomputed, so the evidence this chain protects cannot
+                be silently rewritten. <em>Re-verify evidence</em> re-hashes these {files.length} file
                 {files.length === 1 ? "" : "s"} to detect tampering.
               </span>
             </div>

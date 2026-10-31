@@ -40,15 +40,25 @@ def seal_unhashed_entries(custody_log, incident_id, files):
     return custody_log
 
 def verify_custody_chain(custody_log, incident_id, files=None):
-    """True only if every entry, every link and (optionally) the evidence are intact."""
+    """True only if every entry, every link and (optionally) the evidence are intact.
+
+    Each entry seals the evidence digest as it stood when that entry was written, so
+    evidence may legitimately grow — files created on the drive while it is still
+    plugged in — provided the addition is itself recorded as an entry. The newest
+    entry therefore has to describe the files exactly as they are now: editing or
+    dropping a collected hash still fails, because nothing then matches the tip.
+    """
     prev = None
-    current_digest = evidence_digest(files) if files is not None else None
     for e in custody_log:
         if e.get("prev_hash") != prev:
             return False
         if _hash_entry(e, prev, incident_id) != e.get("entry_hash"):
             return False
-        if current_digest and e.get("evidence_digest") != current_digest:
+        # An entry that commits to no evidence is not a custody record.
+        if files is not None and not e.get("evidence_digest"):
             return False
         prev = e["entry_hash"]
+    if files is not None and custody_log:
+        if custody_log[-1].get("evidence_digest") != evidence_digest(files):
+            return False
     return True

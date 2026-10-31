@@ -70,3 +70,31 @@ def test_lnk_target_found_anywhere():
 
 def test_filetime_conversion():
     assert _filetime_to_iso(116444736000000000).startswith("1970-01-01")
+
+
+def test_collect_files_skips_paths_already_collected(tmp_path):
+    drive = make_drive(tmp_path)
+    first, _ = collect_files(str(drive))
+    assert len(first) == 2
+
+    (drive / "NEWLY_ADDED.txt").write_text("created after the drive was walked")
+    added, _ = collect_files(str(drive), [f["path"] for f in first])
+
+    assert [os.path.basename(f["path"]) for f in added] == ["NEWLY_ADDED.txt"]
+    assert len(added[0]["sha256_collected"]) == 64
+
+
+def test_rewalk_with_nothing_new_returns_nothing(tmp_path):
+    drive = make_drive(tmp_path)
+    first, _ = collect_files(str(drive))
+    assert collect_files(str(drive), [f["path"] for f in first]) == ([], 0)
+
+
+def test_rewalk_stops_at_the_file_cap(tmp_path, monkeypatch):
+    # At the cap the drive must not be walked again on every 10 s refresh.
+    import collector.incident as incident
+    monkeypatch.setattr(incident, "MAX_FILES", 2)
+    drive = make_drive(tmp_path)
+    first, _ = collect_files(str(drive))
+    (drive / "late.txt").write_text("too late")
+    assert collect_files(str(drive), [f["path"] for f in first]) == ([], 0)

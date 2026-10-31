@@ -29,16 +29,17 @@ const FAQS = [
        <strong> 0–24 LOW · 25–49 MEDIUM · 50–69 HIGH · 70+ CRITICAL.</strong></>,
   },
   {
-    q: "Why doesn't a file I added to the pendrive AFTER plugging it in show up in the Files table?",
-    a: <>That is deliberate, not a glitch. The Files table is a <strong>forensic snapshot taken at the moment
-       of connection</strong> — the collector hashes the drive once and never re-hashes it, because silently
-       adding or re-hashing files would change the very evidence the chain of custody protects.
-       <br /><br />What <em>does</em> keep updating while the drive stays plugged in is <strong>LNK evidence</strong>:
-       open a file on the drive and within about 10 seconds the incident records that it was opened and
-       queues itself for re-analysis. <strong>Re-verify evidence</strong> re-hashes the files already in the
-       snapshot, so an edited file is flagged as tampered — but it will not add newly created files.
-       To capture a drive's new contents as evidence, unplug and re-plug it: that produces a new incident
-       with its own snapshot and its own custody chain.</>,
+    q: "I added a file to the pendrive after plugging it in — when does it show up in the Files table?",
+    a: <>Within about 10 seconds, as long as the drive is still plugged in and the collector is running.
+       The collector re-walks the drive on each refresh, hashes <strong>only paths it has not seen before</strong>,
+       appends them, and records the addition as a <strong>files_added</strong> entry in the chain of custody.
+       <br /><br />Hashes already collected are never recomputed. That is the important guarantee: evidence can
+       <em> grow</em>, but what was already recorded can never be silently rewritten. Each custody entry seals the
+       evidence as it stood at that moment, and the newest entry must match the files exactly as they are now —
+       so editing or dropping a recorded hash still breaks the chain.
+       <br /><br />Two limits. The collector stops at 300 files per drive, so a full drive will not take more.
+       And if the collector is not running, or the drive has been unplugged, nothing can be added — re-plug it
+       and you get a fresh incident with its own chain.</>,
   },
   {
     q: "What does 'chain of custody' mean here?",

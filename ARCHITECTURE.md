@@ -94,7 +94,7 @@ flowchart TD
     WATCH --> EV{"EventType"}
     EV -->|"2 — ARRIVAL"| DEV["get_device_for_drive<br/>VID · PID · serial · volume"]
     EV -->|"3 — REMOVAL"| DISC["mark_disconnected<br/>set timestamps.disconnect"]
-    EV -->|"timeout"| REFRESH["refresh_lnks<br/>re-read Recent LNKs"]
+    EV -->|"timeout"| REFRESH["refresh_evidence<br/>new LNKs + new files"]
 
     SWEEP -.->|"one incident per<br/>already-plugged drive"| DEV
     DEV --> ISUSB{"is_usb?"}
@@ -114,7 +114,7 @@ flowchart TD
     FILES --> BUILD["build_incident<br/>risk.score = null"]
     BUILD --> INSERT[("insert into incidents")]
 
-    REFRESH -->|"LNK count changed"| REQUEUE["set artifacts.lnk_files<br/>reset risk.score = null"]
+    REFRESH -->|"new LNKs or new files"| REQUEUE["append files + files_added entry<br/>reset risk.score = null"]
     REQUEUE --> INSERT
     DISC --> INSERT
 ```
@@ -123,11 +123,12 @@ flowchart TD
 
 - **Five sources, not one.** A single registry key can be stale or wiped; five
   independent traces agreeing is what Module 2 later turns into a confidence score.
-- **Hash once, at connection.** `collect_files` walks the drive only inside
-  `collect_drive`. The 10-second refresh loop re-reads *LNK records only* — never file
-  hashes, because silently re-hashing would alter the very evidence the custody chain
-  protects. A file created on the drive after insertion therefore does **not** join that
-  incident; re-plugging the drive produces a new incident with its own snapshot.
+- **Append-only evidence: hash each file once, but keep looking.** The 10-second refresh
+  loop re-walks the drive and hashes *only paths not already collected*, appending them and
+  recording a `files_added` custody entry. A hash already recorded is **never** recomputed,
+  because silently re-hashing would overwrite the very evidence the custody chain protects.
+  So evidence can grow while the drive is plugged in, but it can never be quietly rewritten
+  — see the custody model in Module 2.
 - **Bounded collection.** `MAX_FILES = 300` and `MAX_FILE_BYTES = 500 MB`, with
   `System Volume Information` and `$RECYCLE.BIN` skipped, so a large drive cannot stall
   the collector.
@@ -262,8 +263,9 @@ flowchart TD
   over a random salt). The API itself is unauthenticated, so this governs what the
   dashboard offers, not what the server will answer. It is a lab-demo role switch, not
   access control.
-- The Files tab is labelled as a snapshot taken at connection time, so the Module 1
-  design decision above is visible to the investigator rather than being a surprise.
+- The Files tab states when collection began and that later files are appended with a
+  `files_added` custody entry, so the Module 1 design decision is visible to the
+  investigator rather than being a surprise.
 
 ---
 
@@ -363,8 +365,15 @@ integrity-checked incident on a screen*:
   recompute every entry. Forensic-Chain's threat model is genuinely stronger.
 - **Windows-only collection**, and the collector needs Administrator rights to read
   event logs and SetupAPI.
-- **Snapshot semantics.** Files are hashed once at connection, so the file list is a
-  point-in-time snapshot by design (see Module 1).
+- **Append-only file collection.** Each file is hashed once and never re-hashed, so a file
+  *replaced* on the drive keeps its original recorded hash and is caught by re-verification
+  as a mismatch rather than by re-collection. Additions are picked up only while the drive
+  stays plugged in and the collector is running, and stop at the 300-file cap.
+- **The custody chain's evidence binding is per-entry.** Each entry seals the evidence as it
+  stood when written and the newest entry must match the files as they are now. An attacker
+  able to append both a file and a matching entry could therefore grow the manifest; the
+  design assumes no write access to the database, which is the same assumption the whole
+  chain already rests on.
 - **The dashboard sign-in is not access control** — the API is unauthenticated.
 - **Not validated against a court-admissibility standard**; this is a lab project, not a
   forensically certified tool.

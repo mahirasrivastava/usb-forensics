@@ -26,7 +26,18 @@ Windows only. Run as **Administrator** from the repo root:
 4. Every file on the drive is hashed with SHA-256 (`engine.hashing`), up to 300 files and 500 MB each.
 5. The incident is inserted with `risk.score: null`; Module 2 analyzes it automatically.
 
-While the drive stays plugged in, LNK files are re-checked every 10 s; new "opened file" evidence is added and the incident is re-queued for analysis. File hashes are never re-collected, because that would change the evidence the custody chain protects. On unplug, `timestamps.disconnect` is set.
+While the drive stays plugged in, the drive is re-checked every 10 s. Two kinds of late
+evidence are picked up:
+
+- **New LNK records** — files on the drive that the user opened after plug-in.
+- **New files** — paths that did not exist during the first walk are hashed and appended,
+  and the addition is recorded as a `files_added` entry in the chain of custody.
+
+**Hashes already collected are never recomputed.** Evidence may grow, but what was already
+recorded cannot be silently rewritten — each custody entry seals the evidence as it stood at
+that moment, and the newest entry must match the files exactly as they are now. The 300-file
+cap applies to the incident as a whole, so once a drive hits it nothing further is added.
+On unplug, `timestamps.disconnect` is set.
 
 Every reader is best-effort: if one artifact can't be read, it's left empty and collection continues.
 

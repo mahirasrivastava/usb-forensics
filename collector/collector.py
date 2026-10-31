@@ -5,8 +5,10 @@
 
 On connect: identifies the device, reads the 5 artifact sources, hashes every file
 on the drive and inserts an incident with risk.score = null. Module 2's watcher
-analyzes it automatically. While a drive stays plugged in, new Recent-file (LNK)
-evidence is picked up every 10 s and the incident is queued for re-analysis.
+analyzes it automatically. While a drive stays plugged in, evidence that appears
+later — new Recent-file (LNK) records and files created on the drive after the first
+walk — is picked up every 10 s, appended, and the incident queued for re-analysis.
+Hashes already collected are never recomputed.
 
 Windows only reports a volume-change event at the moment a drive mounts, so on
 startup any drive that is *already* plugged in is collected once before the event
@@ -72,18 +74,38 @@ def mark_disconnected(db, drive_letter):
         print(f"[collector] USB removed from {drive_letter}; closed {doc['_id']}")
 
 
-def refresh_lnks(db, connected):
-    """Files opened after plug-in create new LNK files; add them and ask the
-    engine to re-analyze. File hashes are never re-collected (that would change
-    the evidence the custody chain protects)."""
+def refresh_evidence(db, connected):
+    """While a drive stays plugged in, pick up evidence that appears after the first
+    pass: new Recent-file (LNK) records, and files created on the drive since it was
+    walked. Files already collected are never re-hashed — the custody chain protects
+    those hashes — but additions are appended and recorded as their own custody entry,
+    left unsealed for the engine to hash in the same way the initial entry is."""
     from collector.windows_artifacts import parse_recent_lnks
     for drive, inc_id in list(connected.items()):
+        doc = db.incidents.find_one(
+            {"_id": inc_id}, {"artifacts.lnk_files": 1, "files": 1, "custody_log": 1})
+        if not doc:
+            continue
+        update, note = {}, []
+
         lnks = parse_recent_lnks(drive)
-        doc = db.incidents.find_one({"_id": inc_id}, {"artifacts.lnk_files": 1})
-        if doc and len(lnks) != len(doc.get("artifacts", {}).get("lnk_files", [])):
-            db.incidents.update_one({"_id": inc_id}, {"$set": {
-                "artifacts.lnk_files": lnks, "risk.score": None}})
-            print(f"[collector] {inc_id}: {len(lnks)} opened-file records, re-analysis queued")
+        if len(lnks) != len(doc.get("artifacts", {}).get("lnk_files", [])):
+            update["artifacts.lnk_files"] = lnks
+            note.append(f"{len(lnks)} opened-file records")
+
+        existing = doc.get("files", [])
+        added, _ = collect_files(drive + "\\", [f["path"] for f in existing])
+        if added:
+            update["files"] = existing + added
+            update["custody_log"] = doc.get("custody_log", []) + [{
+                "action": "files_added", "actor": "collector", "timestamp": now_iso(),
+                "evidence_digest": None, "entry_hash": None, "prev_hash": None}]
+            note.append(f"{len(added)} new file(s) hashed")
+
+        if update:
+            update["risk.score"] = None          # ask the engine to re-analyze
+            db.incidents.update_one({"_id": inc_id}, {"$set": update})
+            print(f"[collector] {inc_id}: {', '.join(note)}; re-analysis queued")
 
 
 def list_removable_drives():
@@ -124,7 +146,7 @@ def watch(db):
         try:
             event = watcher(timeout_ms=REFRESH_SECONDS * 1000)
         except wmi.x_wmi_timed_out:
-            refresh_lnks(db, connected)
+            refresh_evidence(db, connected)
             continue
         drive = (event.DriveName or "").upper()
         if not drive:
