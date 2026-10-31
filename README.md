@@ -20,6 +20,9 @@ Module 2 · engine/             re-verify hashes → custody chain → graph →
 Module 3 · dashboard/          FastAPI (backend/) + React (frontend/) + PDF report
 ```
 
+Architecture diagrams for the whole system and each module, plus a comparison with
+prior research: **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+
 ## Setup (once)
 
 1. Python 3.9+ and Node.js 18+.
