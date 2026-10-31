@@ -312,6 +312,7 @@ an undergraduate integration project built on top of what they established.
 | Shaver, *Exposing Vital Forensic Artifacts of USB Devices in the Windows 10 Registry*, NPS thesis, 2015 | Maps which Windows 10 registry hives change on insertion; identifies last insert/remove timestamps | Registry only; a post-hoc examiner workflow | Adds SetupAPI, Event Log and LNK on top of the registry sources |
 | Arshad, Iqbal & Abbas, *USB Storage Device Forensics for Windows 10*, J. Forensic Sciences, 2018 | Captures registry + event log before, during and after insertion; compares Windows 8 and 10 | Describes artifacts; does not correlate them into one case object or score them | Correlates the five sources into a single incident with a confidence score |
 | Ćosić & Bača, *A Framework to (Im)Prove Chain of Custody in Digital Investigation Process* (DEMF), CECIIS, 2010 | Chain of custody built on a SHA-2 fingerprint of the evidence plus biometrics and a trusted timestamp | Framework proposal; not tied to a live acquisition source | Implements a hash-linked custody log that seals each entry with the previous one |
+| Guidance Software, *Systems… for forensic monitoring*, US Patent 9,507,936 (2016) | Nearest prior art overall: a dashboard of risk indicators across forensic categories, drill-down reports for USB storage, triggered automatically on an incident | Three-level verdict (pass/warn/fail), not an explainable per-rule score; a patent filing, not validated or reproducible research; no published custody-chain design | Open implementation with per-rule justification and a hash-linked custody log |
 | Lone & Mir, *Forensic-chain: Blockchain based digital forensics chain of custody*, Digital Investigation 28:44–55, 2019 | Tamper-evident custody using a permissioned blockchain (Hyperledger Composer PoC) | Needs blockchain infrastructure; concerned with custody, not with detecting the incident | Same tamper-evidence goal with a hash chain inside the incident document — no extra infrastructure |
 
 ### What this project adds
@@ -341,6 +342,17 @@ integrity-checked incident on a screen*:
    (`(+25) Executable file transferred: …`), so the number is never a black box.
 6. **End-to-end automation.** Insertion to scored incident on screen takes a few seconds
    with no analyst action — the surveyed work is post-hoc and manual.
+7. **A third verification outcome: *unreachable*.** Classical hash verification has two
+   outcomes — match or mismatch — because an examiner re-hashes evidence they are holding.
+   A system that re-verifies *continuously* meets a third case constantly: the drive is
+   unplugged, or the analysis runs on a different host from the collection. Folding that
+   into "mismatch" fabricates tampering findings. We measured this on our own data: one
+   benign drive was rated CRITICAL 100 with 300 invented findings purely because the
+   dashboard host could not see drive `F:`. The engine now separates `evidence_unreachable`
+   from `file_missing_on_reverify`, scores it zero, reports it once per incident, and the
+   dashboard shows *drive offline* rather than *missing* — the same incident then scores
+   MEDIUM 40 with 3 real findings. This distinction is a direct consequence of automating
+   re-verification, which is why the post-hoc literature does not have to confront it.
 
 ### Honest limitations
 
@@ -370,6 +382,8 @@ integrity-checked incident on a screen*:
    *Journal of Forensic Sciences*, 2018, doi:10.1111/1556-4029.13596.
 4. J. Ćosić and M. Bača, "A Framework to (Im)Prove Chain of Custody in Digital
    Investigation Process," *CECIIS*, 2010.
-5. A. H. Lone and R. N. Mir, "Forensic-chain: Blockchain based digital forensics chain
+5. Guidance Software, Inc., "Systems, methods, apparatuses, and computer program products
+   for forensic monitoring," U.S. Patent 9,507,936, Nov. 2016.
+6. A. H. Lone and R. N. Mir, "Forensic-chain: Blockchain based digital forensics chain
    of custody with PoC in Hyperledger Composer," *Digital Investigation*, vol. 28,
    pp. 44–55, 2019.
