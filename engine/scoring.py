@@ -29,8 +29,11 @@ def evaluate_risk(incident, approved_serials=None):
     if incident.get("device", {}).get("serial", "") not in approved:
         add(25, "Unauthorized device: serial not in approved whitelist")
 
+    files = incident.get("files", [])
+    unreachable = [f for f in files if "evidence_unreachable" in f.get("flags", [])]
+
     total = 0
-    for f in incident.get("files", []):
+    for f in files:
         name = f["path"].lower()
         flags = f.get("flags", [])
         total += f.get("size", 0)
@@ -42,6 +45,13 @@ def evaluate_risk(incident, approved_serials=None):
             add(30, f"Hash mismatch on re-verification: {f['path']}")
         if "file_missing_on_reverify" in flags:
             add(10, f"File missing on re-verification: {f['path']}")
+
+    if unreachable:
+        # The drive isn't mounted on this host, so nothing could be re-checked.
+        # That is a gap in verification, not evidence against the device: it scores
+        # nothing, but the investigator must be told the files went unverified.
+        add(0, f"Evidence not reachable from this host: {len(unreachable)} of "
+               f"{len(files)} files could not be re-verified")
 
     if total > LARGE_TRANSFER_BYTES:
         add(15, f"Large transfer: {total / (1024 * 1024):.1f} MB")

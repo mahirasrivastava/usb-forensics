@@ -34,6 +34,9 @@ export function FileStatusBadge({ flags, reverified }) {
     return <span className="badge bad"><span className="glyph">✗</span>tampered</span>;
   if (has("file_missing_on_reverify"))
     return <span className="badge warn"><span className="glyph">!</span>missing</span>;
+  if (has("evidence_unreachable"))
+    return <span className="badge muted" title="The drive is not mounted on the machine running the dashboard, so this file could not be re-hashed. This is not a tampering finding.">
+      <span className="glyph">—</span>drive offline</span>;
   if (reverified) return <span className="badge ok"><span className="glyph">✓</span>match</span>;
   return <span className="badge muted">not checked</span>;
 }

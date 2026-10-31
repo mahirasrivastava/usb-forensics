@@ -52,3 +52,16 @@ def test_score_capped_at_100():
     inc = sample(files=[{"path": f"D:\\x{i}.exe", "size": 1, "flags": []} for i in range(10)])
     r = evaluate_risk(inc, set())
     assert r["score"] == 100 and r["level"] == "CRITICAL"
+
+
+def test_unreachable_evidence_scores_nothing_but_is_reported():
+    from engine.scoring import evaluate_risk
+    files = [{"path": rf"F:\f{i}.txt", "size": 10,
+              "flags": ["evidence_unreachable"]} for i in range(300)]
+    inc = {"device": {"serial": "4C5300012308"}, "files": files}
+    risk = evaluate_risk(inc)
+    # 300 unreadable files must not manufacture a CRITICAL rating on their own.
+    unreach = [r for r in risk["justification"] if "not reachable" in r]
+    assert len(unreach) == 1 and unreach[0].startswith("(+0)")
+    assert not any("missing on re-verification" in r for r in risk["justification"])
+    assert risk["score"] == 25    # the unauthorized-serial rule only

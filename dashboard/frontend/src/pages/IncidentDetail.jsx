@@ -90,7 +90,10 @@ export default function IncidentDetail() {
   const graph = inc.correlation_graph || { nodes: [], edges: [] };
   const chainNow = inc.integrity?.custody_chain_valid_now;
   const matched = new Set(confidence.sources_matched || []);
-  const tampered = files.filter((f) => f.flags?.length);
+  // A drive that isn't mounted here couldn't be re-hashed at all; that is a gap in
+  // verification, not a finding against the files.
+  const offline = files.filter((f) => f.flags?.includes("evidence_unreachable"));
+  const tampered = files.filter((f) => f.flags?.some((x) => x !== "evidence_unreachable"));
   const opened = (artifacts.lnk_files || []).length;
 
   const TABS = [
@@ -243,6 +246,10 @@ export default function IncidentDetail() {
                   <dd>{tampered.length
                     ? <span className="badge bad"><span className="glyph">✗</span>{tampered.length} tampered</span>
                     : <span className="badge ok"><span className="glyph">✓</span>none</span>}</dd>
+                  {offline.length > 0 && <>
+                    <dt>Unverified</dt>
+                    <dd><span className="badge muted"><span className="glyph">—</span>{offline.length} drive offline</span></dd>
+                  </>}
                   <dt>Chain now</dt><dd><ChainBadge valid={chainNow} /></dd>
                 </dl>
               </div>
